@@ -1,0 +1,7 @@
+I activated and deactivated the 1000 separator for the columns CA9 and CEA (development cohort). Otherwise, one gets commas in the csv.
+Merged development and validation cohort into 1 file.
+
+In script:
+<2 was mapped to 2 for IL.6
+<5 was mapped to 5 for IL.8
+<0,1 was mapped to 0.1 for Cyfra.21.1

@@ -1,0 +1,3 @@
+datasetName;datasetFoldername;datasetFilename;datasetLoadfunction
+OberijeEtAl;Oberije_et_al_(2015);Stage3_anonymized.csv;loadDataOberijeEtAl
+CarvalhoEtAl;Carvalho_et_al_(2016);Carvalho_merged.csv;loadDataCarvalhoEtAl
