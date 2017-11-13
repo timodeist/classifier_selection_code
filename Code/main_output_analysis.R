@@ -50,8 +50,9 @@ cat(sprintf(paste('  saveOutput:            %s\n',
 
 ### load RData file through GUI
 library(svDialogs)
+outputFolderNumberFoldersUp = 0
 pathToOutputFolderDefault = strsplit(this.dir, "/")[[1]]
-pathToOutputFolderDefault = paste(pathToOutputFolderDefault[-(c(length(pathToOutputFolderDefault)-1, length(pathToOutputFolderDefault)))], collapse='/')
+pathToOutputFolderDefault = paste(pathToOutputFolderDefault[-(c(length(pathToOutputFolderDefault)-outputFolderNumberFoldersUp, length(pathToOutputFolderDefault)))], collapse='/')
 pathToOutputFolderDefault = paste(pathToOutputFolderDefault, 'Output/*.RDATA', sep='/')
 filepath = dlgOpen(pathToOutputFolderDefault,'Select .Rdata file with simulation result', multiple = FALSE, filters = dlgFilters["Rdata"])
 filepath = strsplit(filepath$res, "/")[[1]]
