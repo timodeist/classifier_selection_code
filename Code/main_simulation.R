@@ -87,7 +87,7 @@ if (!file.exists(startup_csvfilename)) {
   # csv missing, stop with error
   stop(sprintf('missing %s, stopped run...\n',startup_csvfilename))
 }
-datasetDefinitions = read.csv(startup_csvfilename, sep = ";")
+datasetDefinitions = read.csv(startup_csvfilename, sep = ",")
 datasetName <- as.vector(datasetDefinitions$datasetName)
 datasetFoldername <- as.vector(datasetDefinitions$datasetFoldername)
 datasetFilename <- as.vector(datasetDefinitions$datasetFilename)

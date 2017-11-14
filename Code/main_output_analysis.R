@@ -120,7 +120,7 @@ if (anonymizeDatasets)
   datasetSelection = revalue(datasetSelection, mappingDatasetToPseudonym)
   outputTable$dataset = revalue(outputTable$dataset, mappingDatasetToPseudonym)
   names(datasetPatientNumbers) = revalue(names(datasetPatientNumbers), mappingDatasetToPseudonym)
-  prefDatasetOrder = revalue(prefDatasetOrder, mappingDatasetToPseudonym)
+  prefDatasetOrder = revalue(prefDatasetOrder, mappingDatasetToPseudonym, warn_missing = FALSE)
 }
 
 
@@ -375,7 +375,7 @@ if (saveOutput)
 }
 
 # open output folder in explorer
-options(warn = -1) # disable warning
+options(warn = -1) # disable warnings, running shell commands from R results in a useless warning ('Warning: running command '...' has status 1')
 dummy = shell(paste("explorer ", gsub("/","\\",paste(pathToOutputFolder,outputSubFolder,sep='/'), fixed=TRUE), sep=""), intern=TRUE)
 
 # plot times
