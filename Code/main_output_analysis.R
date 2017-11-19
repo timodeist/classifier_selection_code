@@ -216,9 +216,10 @@ if (saveOutput)
 
 ### parameters for figure plotting and csv files
 figureWidth = 8
+figureWidth_pairwise = 5.5
 figureHeight_boxplot = 6
-figureHeight_pairwise = 6
-figureHeight_heatmap = 4.5
+figureHeight_pairwise = 4.1
+figureHeight_heatmap = 3.7
 figureDpi = 600
 
 
@@ -249,7 +250,7 @@ if (saveOutput & length(datasetSelection)>1)
 # scatter boxplot
 ggplot(outputTable_aggFolds, aes(x = classifier,y = rankCvAuc)) +
   geom_boxplot(fill = 'violetred') +
-  geom_jitter(width = 0.3, height = 0.15, shape = 20) +
+  geom_jitter(width = 0.25, height = 0.15, shape = 20) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
@@ -288,7 +289,7 @@ if (proportionalDatasetsOn)
 }
 
 # heatmap pairwise comparisons
-colorMapping = c('not tested' = 'grey90','insignificant' = 'red','significant' = 'violetred')
+colorMapping = c('not tested' = 'grey90','insignificant' = 'violet','significant' = 'violetred')
 
 ggplot(pairCompPlotTable, aes( x = classifierTwo, y = classifierOne)) +
   geom_tile(aes(fill = boxColor), color = 'white') +
@@ -304,8 +305,8 @@ ggplot(pairCompPlotTable, aes( x = classifierTwo, y = classifierOne)) +
 
 if (saveOutput) 
 {
-  ggsave(file.path(pathToOutputFolder,outputSubFolder,paste(timeLabel,'_main_output_analysis_heatmap_pairwiseComparison.png', sep = '')), device = 'png', width = figureWidth, height = figureHeight_pairwise, dpi = figureDpi) 
-  ggsave(file.path(pathToOutputFolder,outputSubFolder,paste(timeLabel,'_main_output_analysis_heatmap_pairwiseComparison.eps', sep = '')), device = 'eps', width = figureWidth, height = figureHeight_pairwise, dpi = figureDpi) 
+  ggsave(file.path(pathToOutputFolder,outputSubFolder,paste(timeLabel,'_main_output_analysis_heatmap_pairwiseComparison.png', sep = '')), device = 'png', width = figureWidth_pairwise, height = figureHeight_pairwise, dpi = figureDpi) 
+  ggsave(file.path(pathToOutputFolder,outputSubFolder,paste(timeLabel,'_main_output_analysis_heatmap_pairwiseComparison.eps', sep = '')), device = 'eps', width = figureWidth_pairwise, height = figureHeight_pairwise, dpi = figureDpi) 
 }
 
 if (proportionalDatasetsOn) 
