@@ -1,6 +1,6 @@
-addCvAucRanks = function(aggOutputTable,classifierSelection,datasetSelection,maxRep)
+addCvAucRanks = function(aggOutputTable,classifierSelection,datasetSelection,reps)
 {
-  for (i_rep in 1:maxRep) # loop through each repetition
+  for (i_rep in reps) # loop through each repetition
   {
     for (i_dataset in datasetSelection) # loop through each dataset
     {

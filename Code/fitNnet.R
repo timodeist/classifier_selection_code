@@ -8,8 +8,10 @@ fitNnet <- function(trainData,trainClass,mySeed,fitControl,defaultTuning)
   }
   else
   {
-    myTuneGrid <- expand.grid(size = seq(1,9,2), decay = c(0, 0.1, 0.01, 0.001, 0.0001))
-    modelFit <- train(x = trainData, y = trainClass, method = 'nnet' , trControl = fitControl, metric = 'ROC', tuneGrid = myTuneGrid, trace = FALSE) # added trace = FALSE to suppress console output
+    fitControl$search = "random"
+    tuneLengthSize = 25
+    MaxWeights = 5000
+    modelFit <- train(x = trainData, y = trainClass, method = 'nnet' , trControl = fitControl, metric = 'ROC', tuneLength = tuneLengthSize, trace = FALSE, MaxNWts = MaxWeights) # added trace = FALSE to suppress console output
   }
   return(modelFit)
 }

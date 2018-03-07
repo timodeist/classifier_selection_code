@@ -18,7 +18,7 @@ runClassifier = function(classifierName,trainData,trainClass,testData,testClass,
   fitControl = trainControl( method = 'cv', number = kInner, classProbs = TRUE, allowParallel = FALSE, summaryFunction = twoClassSummary, verboseIter = FALSE)
 
   # given the classifierName, fit the correct model
-    modelFit = switch(classifierName,
+  modelFit = switch(classifierName,
                        rf = fitRf(trainData,trainClass,mySeed,fitControl,defaultTuning),
                        nnet = fitNnet(trainData,trainClass,mySeed,fitControl,defaultTuning),
                        svm = fitSvm(trainData,trainClass,mySeed,fitControl,defaultTuning),
@@ -34,7 +34,19 @@ runClassifier = function(classifierName,trainData,trainClass,testData,testClass,
     # NOTE: the columns 'event' and 'nonEvent' in testDf are probabilities for those classes! Names cannot be changed because these names are required by twoClassSummary()
     testDf$obs = testClass # assign the true test classes as observations
     testDf$pred = predict(modelFit,newdata = testData) # assign predictions (event or nonEvent) as pred (they are either event or nonEvent). Uses 0.5-cutoff
-    testPerformance = twoClassSummary(data = testDf,lev = levels(testDf$obs),model = modelFit$method) # compute statistics for test set
+    
+    # logitboost predict yields NA when predicted probability==0.5 (voting tie) and these rows are omitted in accuracy/kappa calculation: fix by rounding 0.5 up to 1
+    if (classifierName == 'LogitBoost') {
+      testDf$pred[is.na(testDf$pred) & testDf$event==0.5 & testDf$nonEvent==0.5] = 'event'
+    }
+    
+    # note: break if there is still any NA found in the pred column
+    if (any(is.na(testDf$pred))) {
+      stop('NA in pred found')
+    }
+    
+    # compute auc
+    testPerformance = twoClassSummary(data = testDf,lev = levels(testDf$obs), model = modelFit$method) # compute statistics for test set
     auc = testPerformance[1]
     cat(sprintf('AUC=%.2f\n', auc))
     
@@ -58,7 +70,7 @@ runClassifier = function(classifierName,trainData,trainClass,testData,testClass,
     
     # put statistics in a data frame
     statsDf = data.frame(innerCvAuc, auc, calibrationIntercept, calibrationSlope, brierScore, HosLemPvalue, myAccuracy, myKappa)
-  
+    
   # return the data frame with statistics and the fitted model (for saving purposes)
   return(list(statsDf,modelFit))
 }

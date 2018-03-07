@@ -10,6 +10,7 @@ this.dir = '[absolute path to main directory]/Code'
 username = Sys.info()["nodename"]   # computer name used in output folder name
 setwd(this.dir)
 
+
 ### load function and set some debugging options
 debugSource('runCvForClassifiers.R')
 options(warn = 1) # show each warning when it happens
@@ -26,16 +27,17 @@ if (!file.exists(startup_inifilename)) {
                       'pathToDataFolder = \'../Data\'',
                       'pathToOutputFolder = \'../Output\'',
                       'startup_csvfilename = \'main_simulation_datasetDefinitions\'  # csv in code dir with dataset names, foldernames, filenames and load function names',
-                      'maxRep = 10		# defining the number of repetitions of the analysis',
+                      'minRep = 1		# defining the repetition number to start with',
+                      'maxRep = 5		# defining the repetition number to end with',
                       'kOuter = 5		# defining the number of folds used in the outer CV',
                       'kInner = 5		# defining the number of folds used in the parameter tuning CV',
                       'saveOutput = TRUE	# saves ini/csv/rdata file of the run to output dir',
                       'anonymizeDatasets = FALSE # dataset names in the output rdata file will be anonymized to Set A, B etc.',
-                      'mySeed = 1622017	# seed for reproducibility (used before creating outer folds and before each model tuning/training) default = 1622017',
-                      'defaultTuning = TRUE	# set to TRUE if you want to use the default tuning grids from the caret package, if FALSE manually determined tuning grids are used (many are not yet implemented)',
+                      'mySeed = 1622017	# seed for reproducibility (used before creating outer folds and before each model tuning/training)',
+                      'defaultTuning = TRUE	# TRUE for default grid tuning (3 automatic values per hyperparameter), FALSE for random tuning with tunelength hardcoded in fit functions',
                       '',
-                      '# select classifiers to use. LOOKUP: c(\'glmnet\',\'rf\',\'nnet\',\'svm\',\'LogitBoost\',\'rpart\')',
-                      'classifierSelection = c(\'glmnet\',\'rf\',\'nnet\',\'svm\',\'LogitBoost\',\'rpart\')',
+                      '# select classifiers to use. LOOKUP: c(\'glmnet\',\'rf\',\'nnet\',\'LogitBoost\',\'svm\',\'rpart\')',
+                      'classifierSelection = c(\'glmnet\',\'rf\',\'nnet\',\'LogitBoost\',\'svm\',\'rpart\')',
                       '',
                       '# select dataset to use. LOOKUP: see datasetName column in \'main_simulation_datasetDefinitions.csv\'',
                       'datasetSelection = c(\'OberijeEtAl\',\'CarvalhoEtAl\')'
@@ -51,20 +53,24 @@ line_string <- readLines(startup_inifilename) # read ini file (note: last line o
 for (i_iniline in 1:length(line_string)) {
   eval(parse(text = gsub("\\","/",line_string[i_iniline], fixed=TRUE)))
 }
-cat(sprintf(paste('  maxRep:                %d\n',
+cat(sprintf(paste('  minRep:                %d\n',
+                  '  maxRep:                %d\n',
                   '  kOuter:                %d\n',
                   '  kInner:                %d\n',
                   '  saveOutput:            %s\n',
                   '  mySeed:                %d\n',
                   '  classifierSelection:   %s\n',
-                  '  datasetSelection:      %s\n',sep=''),
+                  '  datasetSelection:      %s\n',
+                  '  defaultTuning:         %s\n',sep=''),
+            minRep,
             maxRep,
             kOuter,
             kInner,
             saveOutput,
             mySeed,
             paste(classifierSelection, collapse=', '),
-            paste(datasetSelection, collapse=', ')))
+            paste(datasetSelection, collapse=', '),
+            defaultTuning))
 
 # error check number of outer folds
 if (kOuter<2) {
@@ -117,12 +123,12 @@ datasetFoldername = setNames(datasetFoldername, datasetName)
 datasetFilename = setNames(datasetFilename, datasetName)
 datasetLoadFunction = setNames(datasetLoadFunction, datasetName)
 
-# add .csv extensions in datasetFilenames if they're missing
-for (i_dataset in 1:length(datasetFilename)) {
-  if (regexpr('.csv', datasetFilename[i_dataset], fixed=TRUE)==-1) {
-    datasetFilename[i_dataset] = paste(datasetFilename[i_dataset], ".csv", sep = "")
-  }
-}
+# # add .csv extensions in datasetFilenames if they're missing
+# for (i_dataset in 1:length(datasetFilename)) {
+#   if (regexpr('.csv', datasetFilename[i_dataset], fixed=TRUE)==-1) {
+#     datasetFilename[i_dataset] = paste(datasetFilename[i_dataset], ".csv", sep = "")
+#   }
+# }
 
 # remove .R extensions in datasetLoadFunction if they're present
 for (i_dataset in 1:length(datasetLoadFunction)) {
@@ -151,10 +157,12 @@ datasetPatientNumbers = vector(mode = "integer", length = length(datasetSelectio
 names(datasetPatientNumbers) = datasetSelection
 
 # loop over datasets, add paths to data files within 'Data' folder, add labels for the datasets and load the data
-cat(sprintf('Loading datasets...\n'))
+datasetLoadString = sprintf('Loading datasets...\n')
+cat(datasetLoadString)
 for (i_dataset in 1:length(datasetSelection)) {
-  # print current dataset to be loaded
-  cat(sprintf('  Loading dataset %d/%d\t %-32s\t', i_dataset, length(datasetSelection), datasetSelection[i_dataset]))
+  # print info on current dataset to be loaded
+  datasetLoadString1 = sprintf('  Loading dataset %d/%d\t %-32s\t', i_dataset, length(datasetSelection), datasetSelection[i_dataset])
+  cat(datasetLoadString1)
   
   # load current selected dataset (eval() function used to automatically include new datasets in the csv)
   datasetFilePath = file.path(datasetFoldername[datasetSelection[i_dataset]], datasetFilename[datasetSelection[i_dataset]])
@@ -163,8 +171,12 @@ for (i_dataset in 1:length(datasetSelection)) {
   # save patient numbers of current dataset
   datasetPatientNumbers[i_dataset] = length(loadedData[[2]])
   
-  # print info
-  cat(sprintf('nfeatures=%i\t prevalence=%g%%\t (%i/%i)\n', ncol(loadedData[[1]]), round(100*sum(loadedData[[2]]=='event')/length(loadedData[[2]])), sum(loadedData[[2]]=='event'), length(loadedData[[2]])))
+  # print info of current dataset load result
+  datasetLoadString2 = sprintf('nfeatures=%i\t prevalence=%g%%\t (%i/%i)\n', ncol(loadedData[[1]]), round(100*sum(loadedData[[2]]=='event')/length(loadedData[[2]])), sum(loadedData[[2]]=='event'), length(loadedData[[2]]))
+  cat(datasetLoadString2)
+  
+  # accumulate dataset loading results for saving to txt at the end of script
+  datasetLoadString = c(datasetLoadString,datasetLoadString1,datasetLoadString2)
   
   # store in list
   listOfData[[i_dataset]] = loadedData[[1]] # clumsy way of storing function output in separate variables
@@ -178,6 +190,25 @@ if (saveOutput) {
   outputFoldername = paste(timeLabel, '_', username, '_', numDatasets, 'datasets_', numClassifiers, 'classifiers_models', sep = '')
   pathToOutputSubFolderModels = file.path(pathToOutputFolder, outputFoldername) # output location for models
   dir.create(pathToOutputSubFolderModels)
+  
+  # build file & folder names for saving outputTable csvs per repetition
+  outputFoldername = paste(timeLabel, '_', username, '_', numDatasets, 'datasets_', numClassifiers, 'classifiers_outputTables', sep = '')
+  pathToOutputSubFolderOutputTables = file.path(pathToOutputFolder, outputFoldername) # output location for models
+  dir.create(pathToOutputSubFolderOutputTables)
+  
+  # build file & folder names for saving RDATA  (do it here instead of at the end of the simulation to allow multiple RStudio instances to be run on the same \code\ directory to parallelize)
+  numDatasets = length(datasetSelection)
+  numClassifiers = length(classifierSelection)
+  minSeed = mySeed
+  maxSeed = mySeed+maxRep-1
+  outputFoldername = paste(timeLabel, '_', username, '_', numDatasets, 'datasets_', numClassifiers, 'classifiers_', 'reps', toString(minRep), '-', toString(maxRep), sep = '')
+  pathToOutputSubFolder = file.path(pathToOutputFolder, outputFoldername) # output location for workspace and plots, datasets live outside the git folder
+  dir.create(pathToOutputSubFolder)
+  
+  # copy current startup ini and dataset csv to output dir and rename with timelabel
+  file.copy(c(startup_inifilename, startup_csvfilename), pathToOutputSubFolder)
+  file.rename(file.path(pathToOutputSubFolder,startup_inifilename), file.path(pathToOutputSubFolder,paste(timeLabel,'_',startup_inifilename, sep = '')))
+  file.rename(file.path(pathToOutputSubFolder,startup_csvfilename), file.path(pathToOutputSubFolder,paste(timeLabel,'_',startup_csvfilename, sep = '')))
 }
 
 
@@ -186,9 +217,9 @@ outputTable = data.frame(rep = numeric(), dataset = character(), outerFold = num
 
 # loop over repetitions
 cat(sprintf('Running classifiers on datasets...\n'))
-for (i_rep in 1:maxRep) {
+for (i_rep in minRep:maxRep) {
   # print current classifier rep number
-  timeleft = ((Sys.time() - startTime_simulation)/(i_rep-1)) * (maxRep-i_rep+1) # average time per rep * number of reps left
+  timeleft = ((Sys.time() - startTime_simulation)/(i_rep-minRep)) * (maxRep-i_rep+1) # average time per rep * number of reps left
   cat(sprintf('  Repetition %d/%d\t\t\t\t\t\t\t\t\t\t\t\t timeleft~%.1f %s\n', i_rep, maxRep, timeleft, units(timeleft)))
   
   # loop over each dataset
@@ -208,8 +239,14 @@ for (i_rep in 1:maxRep) {
     # save current modelFits
     if (saveOutput) {
       outputFilename = paste(timeLabel,'_main_simulation_models_rep',toString(i_rep),'_dataset',datasetSelection[i_dataset], sep = '')
-      save(list = c('currentModelFits'), file = file.path(pathToOutputSubFolderModels,paste(outputFilename,'.RData',sep = '')))
+      save(list = c('currentModelFits'), file = file.path(pathToOutputSubFolderModels, paste(outputFilename,'.RData',sep = '')))
     }
+  }
+  
+  # save outputTable to csv for each repetition
+  if (saveOutput) {
+    outputFilenameOutputTable = paste(timeLabel,'_main_simulation_models_rep',toString(minRep),'-',toString(i_rep), sep = '')
+    write.csv(outputTable, file = file.path(pathToOutputSubFolderOutputTables, paste(outputFilenameOutputTable,'.csv',sep = '')))
   }
 }
 
@@ -221,18 +258,9 @@ print(runningTime)
 
 ### save workspace output
 if (saveOutput) {
-  # build file & folder names
-  numDatasets = length(datasetSelection)
-  numClassifiers = length(classifierSelection)
-  minSeed = mySeed
-  maxSeed = mySeed+maxRep-1
-  outputFoldername = paste(timeLabel, '_', username, '_', numDatasets, 'datasets_', numClassifiers, 'classifiers_', maxRep, 'reps', sep = '')
-  outputFilename = paste(timeLabel,'_main_simulation_output_seeds',toString(minSeed),'-',toString(maxSeed), sep = '')
-  pathToOutputSubFolder = file.path(pathToOutputFolder, outputFoldername) # output location for workspace and plots, datasets live outside the git folder
-  dir.create(pathToOutputSubFolder)
-  
   # save output (models are saved separately already, datasetDefinitions not saved since its information is in the csv)
-  parametersToSave = c('datasetPatientNumbers', 'outputTable', 'analysisOutput', 'classifierSelection', 'datasetSelection', 'defaultTuning', 'kInner', 'kOuter', 'minSeed', 'maxSeed', 'maxRep', 'numDatasets', 'numClassifiers','startTime_simulation','endTime','runningTime','username')
+  parametersToSave = c('datasetPatientNumbers', 'outputTable', 'analysisOutput', 'classifierSelection', 'datasetSelection', 'defaultTuning', 'kInner', 'kOuter', 'minSeed', 'maxSeed', 'minRep', 'maxRep', 'numDatasets', 'numClassifiers','startTime_simulation','endTime','runningTime','username')
+  outputFilename = paste(timeLabel,'_main_simulation_output_seeds',toString(minSeed),'-',toString(maxSeed), sep = '')
   save(list = parametersToSave, file = file.path(pathToOutputSubFolder,paste(outputFilename,'.RData',sep = '')))
   
   # save anonymization to text file
@@ -240,8 +268,12 @@ if (saveOutput) {
     write.table(mappingDatasetToPseudonym, col.names = FALSE, file = file.path(pathToOutputSubFolder,paste(timeLabel,'_main_simulation_anonymization_mapping.txt', sep = '')))
   }
   
-  # copy current startup ini and dataset csv to output dir and rename with timelabel
-  file.copy(c(startup_inifilename, startup_csvfilename), pathToOutputSubFolder)
-  file.rename(file.path(pathToOutputSubFolder,startup_inifilename), file.path(pathToOutputSubFolder,paste(timeLabel,'_',startup_inifilename, sep = '')))
-  file.rename(file.path(pathToOutputSubFolder,startup_csvfilename), file.path(pathToOutputSubFolder,paste(timeLabel,'_',startup_csvfilename, sep = '')))
+  # save dataset load string to txt file and full simulation runtime
+  datasetloadingoutput_txtfilename1 = file.path(pathToOutputSubFolder,paste(timeLabel,'_main_simulation_consoleoutput_datasetloading_runtime.txt', sep = ''))
+  fileConn = file(datasetloadingoutput_txtfilename1,"w")
+  writeLines(datasetLoadString, fileConn, sep="\n")
+  writeLines(paste("simulation start: ", toString(startTime_simulation)), fileConn, sep="\n")
+  writeLines(paste("simulation end: ", toString(endTime)), fileConn, sep="\n")
+  writeLines(paste("simulation runtime: ", toString(round(runningTime,1)), attributes(runningTime)$units), fileConn, sep="\n")
+  close(fileConn)
 }

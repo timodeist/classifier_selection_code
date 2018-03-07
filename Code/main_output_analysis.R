@@ -10,6 +10,7 @@ this.dir = '[absolute path to main directory]/Code'
 username = Sys.info()["nodename"]   # computer name used in output folder name
 setwd(this.dir)
 
+
 ### startup parameters from ini file
 startup_inifilename = 'main_output_analysis_parameters.ini'
 # create default ini file if it doesn't exist and stops to allow adjustment of default values
@@ -17,12 +18,15 @@ if (!file.exists(startup_inifilename)) {
   fileConn = file(startup_inifilename)
   inidefaulttext = c( '# default parameters',
                       'saveOutput = TRUE # saves images/rdata files to output dir',
-                      'datasetsToExclude = \'\' # datasets to exclude from the analysis, e.g. c(\'OberijeEtAl\',\'CarvalhoEtAl\')',
+                      'datasetsToExclude = \'\' # datasets to exclude from the analysis, e.g. c(\'dataset1\',\'dataset2\'), or empty \'\'',
                       'anonymizeDatasets = FALSE # anonymizes dataset names to Set A, B etc.',
-                      'proportionalDatasetsOn = FALSE  # generates duplicate output where results are weighed based on dataset size',
+                      'proportionalDatasets = FALSE  # generates duplicate output where results are weighed based on dataset size',
                       '',
-                      '# choose preferred order in which classifiers should appear in figures',
+                      '# choose preferred classifier order in figures, e.g. c(\'glmnet\',\'rf\',\'svm\',\'nnet\',\'LogitBoost\',\'rpart\')',
                       'prefClassifierOrder = c(\'glmnet\',\'rf\',\'nnet\',\'svm\',\'LogitBoost\',\'rpart\')',
+                      '',
+                      '# choose classifier labels in figures (same order and length of prefClassifierOrder, or empty \'\')',
+                      'classifierLabels = c(\'rf\',\'glmnet\',\'nnet\',\'svmRadial\',\'LogitBoost\',\'rpart\')',
                       '',
                       '# choose preferred order in which datasets should appear in figures',
                       'prefDatasetOrder = c(\'OberijeEtAl\', \'CarvalhoEtAl\')'
@@ -40,35 +44,86 @@ for (i_iniline in 1:length(line_string)) {
 }
 cat(sprintf(paste('  saveOutput:            %s\n',
                   '  datasetsToExclude:     %s\n',
+                  '  anonymizeDatasets:     %s\n',
+                  '  proportionalDatasets:  %s\n',
                   '  prefClassifierOrder:   %s\n',
+                  '  classifierLabels:      %s\n',
                   '  prefDatasetOrder:      %s\n',sep=''),
             saveOutput,
             paste(datasetsToExclude, collapse=', '),
+            anonymizeDatasets,
+            proportionalDatasets,
             paste(prefClassifierOrder, collapse=', '),
+            paste(classifierLabels, collapse=', '),
             paste(prefDatasetOrder, collapse=', ')))
 
 
-### load RData file through GUI
+### load .RDATA file through GUI
 library(svDialogs)
 outputFolderNumberFoldersUp = 0
 pathToOutputFolderDefault = strsplit(this.dir, "/")[[1]]
 pathToOutputFolderDefault = paste(pathToOutputFolderDefault[-(c(length(pathToOutputFolderDefault)-outputFolderNumberFoldersUp, length(pathToOutputFolderDefault)))], collapse='/')
-pathToOutputFolderDefault = paste(pathToOutputFolderDefault, 'Output/*.RDATA', sep='/')
-filepath = dlgOpen(pathToOutputFolderDefault,'Select .Rdata file with simulation result', multiple = FALSE, filters = dlgFilters["Rdata"])
-filepath = strsplit(filepath$res, "/")[[1]]
-pathToOutputFolder = paste(filepath[-(c(length(filepath)-1, length(filepath)))], collapse='/')
-outputSubFolder = filepath[-(c(1:(length(filepath)-2), length(filepath)))]
-outputFile = filepath[-(1:(length(filepath)-1))]
+pathToOutputFolderDefault = paste(pathToOutputFolderDefault, 'output/*.RDATA', sep='/')
+filepath = dlgOpen(pathToOutputFolderDefault,'Select .RDATA file with simulation result', multiple = TRUE, filters = dlgFilters["Rdata"]) # note that order of .RDATA files depends on order of selection, but we undo this dependency later when we order by reps/sets/folds/classifiers
 
-pathToFile = file.path(pathToOutputFolder, outputSubFolder, outputFile)
-load(pathToFile)
-rm(list = lsf.str()) # remove all functions in the workspace after loading the rdata file (to get rid of ghost-versions of functions)
+# do the actual loading per file and concatenate the outputTable
+cat(sprintf('Reading .RDATA files...\n'))
+for (i_rdatafile in 1:length(filepath$res)) {
+  
+  # process path of current .RDATA file
+  filepath_cur = strsplit(filepath$res, "/")[[i_rdatafile]]
+  pathToOutputFolder = paste(filepath_cur[-(c(length(filepath_cur)-1, length(filepath_cur)))], collapse='/')
+  outputSubFolder = filepath_cur[-(c(1:(length(filepath_cur)-2), length(filepath_cur)))]
+  outputFile = filepath_cur[-(1:(length(filepath_cur)-1))]
+  cat(sprintf('  %s \n',outputFile))
+  
+  # load current .RDATA file
+  pathToFile = file.path(pathToOutputFolder, outputSubFolder, outputFile)
+  load(pathToFile)
+  rm(list = lsf.str()) # remove all functions in the workspace after loading the .RDATA file (to get rid of ghost-versions of functions)
+  
+  if (i_rdatafile==1) {
+    # collect the ground truth for the simulation parameters from to the first .RDATA file, for comparison with following .RDATA files
+    kInner_truth = kInner
+    kOuter_truth = kOuter
+    datasetPatientNumbers_truth = datasetPatientNumbers
+    datasetSelection_truth = datasetSelection
+    defaultTuning_truth = defaultTuning
+    classifierSelection_truth = classifierSelection
+    minSeed_truth = minSeed # note minSeed is always the seed from the simulation ini, maxSeed changes with reps so there's no need to check it
+    numClassifiers_truth = numClassifiers
+    numDatasets_truth = numDatasets
+    
+    outputTable_concatenated = outputTable
+  } else {
+    if (kInner != kInner_truth) { stop('simulation parameters in selected .RDATA files do not match (kInner)') }
+    if (kOuter != kOuter_truth) { stop('simulation parameters in selected .RDATA files do not match (kOuter)') }
+    if (!all(datasetPatientNumbers == datasetPatientNumbers_truth)) { stop('simulation parameters in selected .RDATA files do not match (datasetPatientNumbers)') }
+    if (!all(datasetSelection == datasetSelection_truth)) { stop('simulation parameters in selected .RDATA files do not match (datasetSelection)') }
+    if (defaultTuning != defaultTuning_truth) { stop('simulation parameters in selected .RDATA files do not match (defaultTuning)') }
+    if (!all(classifierSelection == classifierSelection_truth)) { stop('simulation parameters in selected .RDATA files do not match (classifierSelection)') }
+    if (minSeed != minSeed_truth) { stop('simulation parameters in selected .RDATA files do not match (minSeed)') }
+    if (numClassifiers != numClassifiers_truth) { stop('simulation parameters in selected .RDATA files do not match (numClassifiers)') }
+    if (numDatasets != numDatasets_truth) { stop('simulation parameters in selected .RDATA files do not match (numDatasets)') }
+    
+    # all simulation parameters in the different .RDATA files match so we can concatenate the outputTables  
+    outputTable_concatenated = rbind(outputTable_concatenated, outputTable)
+  }
+}
+
+# overwrite outputTable with concatenated one (we order it in the pre-process below, before anonymization)
+outputTable = outputTable_concatenated
+
+# get unique reps and folds (since reps don't have to start at 1)
+reps = sort(unique(outputTable$rep))
+outerFolds = sort(unique(outputTable$outerFold))
+
 
 ### set randomisation seed using the one that was used in the main_simulation run
-set.seed(minSeed) # set seed for reproducibility random classifier selection experiment
+set.seed(minSeed) # set seed for reproducibility random classifier selection experiment (minSeed is always the seed from the simulation ini)
 
 
-### load libraries, functions and set some debugging options (after loading the rdata file)
+### load libraries, functions and set some debugging options (after loading the .RDATA file)
 library(ggplot2)
 library(plyr)
 debugSource('addAucRanks.R')
@@ -96,9 +151,11 @@ outputTable = outputTable[is.na(match(outputTable$dataset ,datasetsToExclude)),]
 datasetSelection = datasetSelection[is.na(match(datasetSelection, datasetsToExclude))]
 datasetPatientNumbers = datasetPatientNumbers[is.na(match(names(datasetPatientNumbers), datasetsToExclude))]
 
-# order datasetSelection and classifierSelection based on preferred orders (cosmetics for plotting)
+# overwrite datasetSelection and classifierSelection based on preferred orders from ini (cosmetics for plotting)
 classifierSelection = classifierSelection[order(match(classifierSelection,prefClassifierOrder))]
 datasetSelection = datasetSelection[order(match(datasetSelection,prefDatasetOrder))]
+
+# order outputTable on rep, datasets (preferred order from ini), outerFolds, classifiers (preferred order from ini) so we get reproducible order independent of the order of .RDATA file selection in the dialog window
 outputTable = outputTable[order(outputTable$rep,match(outputTable$dataset,datasetSelection),outputTable$outerFold,match(outputTable$classifier,classifierSelection)),]
 
 
@@ -114,43 +171,55 @@ if (anonymizeDatasets)
   {
     write.table(mappingDatasetToPseudonym, col.names = FALSE, file = file.path(pathToOutputFolder,outputSubFolder,paste(timeLabel,'_main_output_analysis_anonymization_mapping.txt', sep = '')))
   }
-  cat(sprintf('  anonymization:         %s\n', paste(rbind(mappingDatasetToPseudonym,rep('=',numDatasets),names(mappingDatasetToPseudonym),rep('  ',numDatasets)),collapse = '')))
+  cat(sprintf('Anonymization...\n'))
+  cat(sprintf('%s\n', paste(rbind(rep('  ',numDatasets),mappingDatasetToPseudonym,rep('=',numDatasets),names(mappingDatasetToPseudonym),rep('\n',numDatasets)),collapse = '')))
   
   # apply anonymization
   datasetSelection = revalue(datasetSelection, mappingDatasetToPseudonym)
   outputTable$dataset = revalue(outputTable$dataset, mappingDatasetToPseudonym)
   names(datasetPatientNumbers) = revalue(names(datasetPatientNumbers), mappingDatasetToPseudonym)
-  prefDatasetOrder = revalue(prefDatasetOrder, mappingDatasetToPseudonym, warn_missing = FALSE)
+}
+
+# replacing classifier labels
+if (length(classifierLabels) == length(classifierSelection) & is.character(classifierLabels)) {
+  # turn classifier labels into a named vector
+  names(classifierLabels) = classifierSelection
+  
+  # update classifierSelection and outputTable with the new classsifier labels
+  classifierSelection = revalue(classifierSelection, classifierLabels)
+  outputTable$classifier = revalue(outputTable$classifier, classifierLabels)
+} else if (length(classifierLabels) != 1) {
+  stop(sprintf('length of classifierLabels in ini (%d) does not match the number of classifiers in the .RDATA file (%d)', length(classifierLabels), length(classifierSelection))) # classifierLabels = '' is allowed
 }
 
 
 ### data analysis/aggregation
-cat(sprintf('\nStarting analysis. This may take in the order of ten minutes...\n'))
+cat(sprintf('\nStarting analysis (approx. 8 minutes for 100 reps, 12 sets, 6 classifiers)...\n'))
 
 # computes ranks in the outputTable (before averaging over folds) --> used for the numerical experiment (3)
-outputTable = addAucRanks(outputTable,classifierSelection,datasetSelection,maxRep,kOuter)
+outputTable = addAucRanks(outputTable,classifierSelection,datasetSelection,reps,outerFolds)
 
 # create outputTable_aggFolds that contains average values over all kOuter folds
-outputTable_aggFolds = aggregateFolds(outputTable,classifierSelection,datasetSelection,kOuter,maxRep)
+outputTable_aggFolds = aggregateFolds(outputTable,classifierSelection,datasetSelection)
 
 # computes ranks in the outputTable_aggFolds (after averaging over folds)
-outputTable_aggFolds = addCvAucRanks(outputTable_aggFolds,classifierSelection,datasetSelection,maxRep)
+outputTable_aggFolds = addCvAucRanks(outputTable_aggFolds,classifierSelection,datasetSelection,reps)
 
 # create outputTable_aggRepsFolds that contains average values over all reps and kOuter folds
-outputTable_aggRepsFolds = aggregateReps(outputTable_aggFolds,classifierSelection,datasetSelection,kOuter,maxRep)
+outputTable_aggRepsFolds = aggregateReps(outputTable_aggFolds,classifierSelection,datasetSelection)
 
 
 ### generate tables for plots or csv files
 
 # create a table of ordered pairs from k-fold results
-orderedPairsTable = generateOrderedPairs(outputTable_aggFolds,classifierSelection,datasetSelection,maxRep)
+orderedPairsTable = generateOrderedPairs(outputTable_aggFolds,classifierSelection,datasetSelection,reps)
 
 # create table for pairwise comparison graphs
-generatePlotTablePairwiseComparisonOutput = generatePlotTablePairwiseComparison(orderedPairsTable,classifierSelection,datasetSelection,maxRep,TRUE)
+generatePlotTablePairwiseComparisonOutput = generatePlotTablePairwiseComparison(orderedPairsTable,classifierSelection,datasetSelection,TRUE)
 pairCompPlotTable = generatePlotTablePairwiseComparisonOutput[[1]]
 wilcoxList = generatePlotTablePairwiseComparisonOutput[[2]] # for debugging only
 
-if (proportionalDatasetsOn) 
+if (proportionalDatasets) 
 {
   # create outputTable_aggFolds to patient numbers (for appendix)
   outputTable_aggFolds_proportional = generateTableProportional(outputTable_aggFolds,datasetPatientNumbers)
@@ -159,7 +228,7 @@ if (proportionalDatasetsOn)
   orderedPairsTable_proportional = generateTableProportional(orderedPairsTable,datasetPatientNumbers)
   
   # create table for pairwise comparison graphs proportional to patient numbers (for appendix)
-  generatePlotTablePairwiseComparisonOutput_proportional = generatePlotTablePairwiseComparison(orderedPairsTable_proportional,classifierSelection,datasetSelection,maxRep,FALSE)
+  generatePlotTablePairwiseComparisonOutput_proportional = generatePlotTablePairwiseComparison(orderedPairsTable_proportional,classifierSelection,datasetSelection,FALSE)
   pairCompPlotTable_proportional = generatePlotTablePairwiseComparisonOutput_proportional[[1]]
   wilcoxList_proportional = generatePlotTablePairwiseComparisonOutput_proportional[[2]] # for debugging only
 }
@@ -169,7 +238,7 @@ aucHeatmapPlotTable = generatePlotTableAucHeatmap(outputTable_aggRepsFolds,class
 
 # compute experiment pre-selection vs random vs inner-CV classifier selection
 if (length(datasetSelection)>1) {
-  generatePlotTableSelectionSimulationOutput = generatePlotTableSelectionSimulation(outputTable,outputTable_aggFolds,classifierSelection,datasetSelection,kOuter,maxRep,datasetPatientNumbers)
+  generatePlotTableSelectionSimulationOutput = generatePlotTableSelectionSimulation(outputTable,outputTable_aggFolds,classifierSelection,datasetSelection,outerFolds,reps,datasetPatientNumbers)
   selectionSimulationPlotTable = generatePlotTableSelectionSimulationOutput[[1]] # not used in tables or figures
   selectionSimulationPlotTable_aggRepsFolds = generatePlotTableSelectionSimulationOutput[[2]] # printed as csv file
   selectionSimulationWilcox = generatePlotTableSelectionSimulationOutput[[3]] # printed as csv file
@@ -266,7 +335,7 @@ if (saveOutput)
   ggsave(file.path(pathToOutputFolder,outputSubFolder,paste(timeLabel,'_main_output_analysis_scatterboxplot_rankAuc.eps', sep = '')), device = 'eps', width = figureWidth, height = figureHeight_boxplot, dpi = figureDpi) 
 }
 
-if (proportionalDatasetsOn) 
+if (proportionalDatasets) 
 {
   # scatter plot proportional to patient numbers without scatter (for appendix)
   ggplot(outputTable_aggFolds_proportional, aes(x = classifier,y = rankCvAuc)) +
@@ -309,7 +378,7 @@ if (saveOutput)
   ggsave(file.path(pathToOutputFolder,outputSubFolder,paste(timeLabel,'_main_output_analysis_heatmap_pairwiseComparison.eps', sep = '')), device = 'eps', width = figureWidth_pairwise, height = figureHeight_pairwise, dpi = figureDpi) 
 }
 
-if (proportionalDatasetsOn) 
+if (proportionalDatasets) 
 {
   # heatmap pairwise comparisons proportional for patient numbers (for appendix)
   ggplot(pairCompPlotTable_proportional, aes( x = classifierTwo, y = classifierOne)) +

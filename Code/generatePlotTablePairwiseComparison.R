@@ -1,4 +1,4 @@
-generatePlotTablePairwiseComparison = function(orderedPairsTable,classifierSelection,datasetSelection,maxRep,testOn)
+generatePlotTablePairwiseComparison = function(orderedPairsTable,classifierSelection,datasetSelection,testOn)
 {
   # This function generates a data frame for plotting the pairwise comparison. 
   # An example: Imagine we have 100 repetitions, 9 datasets, 6 classifiers.

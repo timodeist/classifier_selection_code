@@ -8,8 +8,9 @@ fitGlmnet <- function(trainData,trainClass,mySeed,fitControl,defaultTuning)
   }
   else
   {
-    #myTuneGrid <- expand.grid()
-    modelFit <- train(x = trainData, y = trainClass, method = 'glmnet' , trControl = fitControl, metric = 'ROC', tuneGrid = myTuneGrid)
+    fitControl$search = "random"
+    tuneLengthSize = 25
+    modelFit <- train(x = trainData, y = trainClass, method = 'glmnet' , trControl = fitControl, metric = 'ROC', tuneLength = tuneLengthSize)
   }
   return(modelFit)
 }

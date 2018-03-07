@@ -1,4 +1,4 @@
-generatePlotTableSelectionSimulation = function(inputTable,aggOutputTable,classifierSelection,datasetSelection,kOuter,maxRep,mappingDatasetToPatientNumbers)
+generatePlotTableSelectionSimulation = function(inputTable,aggOutputTable,classifierSelection,datasetSelection,outerFolds,reps,mappingDatasetToPatientNumbers)
 {
   # This function creates 3 data frames.
   # The first contains test set AUCs and test set AUC ranks for the classifier selection method 
@@ -57,9 +57,9 @@ generatePlotTableSelectionSimulation = function(inputTable,aggOutputTable,classi
     preSelectedClassifierNameRow = data.frame(dataset = i_dataset, preSelectedClassifier = preSelectedClassifierName)
     preSelectedClassifierNameDf = rbind(preSelectedClassifierNameDf,preSelectedClassifierNameRow)
     
-    for (i_rep in 1:maxRep) # loop through each repetition
+    for (i_rep in reps) # loop through each repetition
     {
-      for (i_kOuter in 1:kOuter) # loop through each fold
+      for (i_kOuter in outerFolds) # loop through each fold
       {
         # Note: random, oracle, set-specific classifiers are chosen once per fold/repetition/dataset instance
         

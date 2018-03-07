@@ -8,9 +8,9 @@ fitRpart <- function(trainData,trainClass,mySeed,fitControl,defaultTuning)
   }
   else
   {
-    # rpartControl <-  rpart.control(minsplit = 3) # if you want to adjust some parameters manually
-    # myTuneGrid <- expand.grid()
-    modelFit <- train(x = trainData, y = trainClass, method = 'rpart' , trControl = fitControl, metric = 'ROC', tuneGrid = myTuneGrid, trials = 1)
+    fitControl$search = "random"
+    tuneLengthSize = 25
+    modelFit <- train(x = trainData, y = trainClass, method = 'rpart' , trControl = fitControl, metric = 'ROC', tuneLength = tuneLengthSize)
   }
   return(modelFit)
 }

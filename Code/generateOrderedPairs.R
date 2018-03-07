@@ -1,4 +1,4 @@
-generateOrderedPairs = function(inputTable,classifierSelection,datasetSelection,maxRep)
+generateOrderedPairs = function(inputTable,classifierSelection,datasetSelection,reps)
  {
   # This function creates a data frame with rows of ordered pairs of classifiers and their AUC aggregated over folds per dataset & repetition.
   # An example: Imagine we have 100 repetitions, 9 datasets, 6 classifiers. Data was aggregated over 5 folds (irrelevant here).
@@ -15,7 +15,7 @@ generateOrderedPairs = function(inputTable,classifierSelection,datasetSelection,
                          aucOneGreaterAucTwo = numeric()
                          )
   
-  for (i_rep in 1:maxRep) # loop through each repetition
+  for (i_rep in reps) # loop through each repetition
   {
     for (i_dataset in datasetSelection) # loop through each dataset
     {

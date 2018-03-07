@@ -1,6 +1,6 @@
-aggregateFolds = function(outputTable,classifierSelection,datasetSelection,kOuter,maxRep)
+aggregateFolds = function(outputTable,classifierSelection,datasetSelection)
 {
-  # select columns to be mean())'ed or mean(abs())'ed
+  # select columns to be mean())'ed or mean(abs())'ed or mean(abs(-1))'ed
   colSelection_mean = c('auc','rankAuc','brierScore','myAccuracy','myKappa')
   colSelection_meanAbs = c('calibrationIntercept')
   colSelection_meanAbsMinusOne = c('calibrationSlope')
@@ -8,18 +8,18 @@ aggregateFolds = function(outputTable,classifierSelection,datasetSelection,kOute
   # aggregate some columns by mean() over all folds   
   aggTable_mean = aggregate(outputTable[,colSelection_mean], 
                                            by = list('dataset' = outputTable$dataset, 'rep' = outputTable$rep ,'classifier' = outputTable$classifier),
-                                           FUN = mean)
+                                           FUN = function(x){mean(x,na.rm=TRUE)})
   # aggregate calibration intercept by mean(abs(x))  over all folds   
   aggTable_meanAbs = aggregate(outputTable[,colSelection_meanAbs],
                                               by = list('dataset' = outputTable$dataset, 'rep' = outputTable$rep ,'classifier' = outputTable$classifier),
-                                              FUN = function(x){mean(abs(x))})
+                                              FUN = function(x){mean(abs(x),na.rm=TRUE)})
   # rename the column to correct name (when only one variable is aggregated, the object becomes a list which ignores variable names)
   names(aggTable_meanAbs)[4] = colSelection_meanAbs
   
   # aggregate calibration slope by mean(abs(x-1)) over all folds
   aggTable_meanAbsMinusOne = aggregate(outputTable[,colSelection_meanAbsMinusOne],
                                                       by = list('dataset' = outputTable$dataset, 'rep' = outputTable$rep,'classifier' = outputTable$classifier),
-                                                      FUN = function(x){mean(abs(x-1))})
+                                                      FUN = function(x){mean(abs(x-1),na.rm=TRUE)})
   # rename the column to correct name (when only one variable is aggregated, the object becomes a list which ignores variable names)
   names(aggTable_meanAbsMinusOne)[4] = colSelection_meanAbsMinusOne
   

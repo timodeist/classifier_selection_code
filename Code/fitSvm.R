@@ -8,8 +8,9 @@ fitSvm <- function(trainData,trainClass,mySeed,fitControl,defaultTuning)
   }
   else
   {
-    myTuneGrid <- expand.grid(C = c(2^(-2), 2^(-1), 1, 2, 4),sigma = c(10^(-2), 10^(-1), 1, 10, 100))
-    modelFit <- train(x = trainData, y = trainClass, method = 'svmRadial' , trControl = fitControl, metric = 'ROC', tuneGrid = myTuneGrid, scale = FALSE) 
+    fitControl$search = "random"
+    tuneLengthSize = 25
+    modelFit <- train(x = trainData, y = trainClass, method = 'svmRadial' , trControl = fitControl, metric = 'ROC', scale = FALSE, tuneLength = tuneLengthSize) 
   }
   return(modelFit)
 }
