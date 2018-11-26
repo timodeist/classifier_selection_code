@@ -146,10 +146,11 @@ options(show.error.locations = TRUE) # show code line numbers of errors
 # drop rows with NAs
 #outputTable = outputTable[!is.na(outputTable[,'auc']),]
 
-# exclude datasets (remove for final repository)
+# exclude datasets
 outputTable = outputTable[is.na(match(outputTable$dataset ,datasetsToExclude)),]
 datasetSelection = datasetSelection[is.na(match(datasetSelection, datasetsToExclude))]
 datasetPatientNumbers = datasetPatientNumbers[is.na(match(names(datasetPatientNumbers), datasetsToExclude))]
+numDatasets = length(datasetSelection)
 
 # overwrite datasetSelection and classifierSelection based on preferred orders from ini (cosmetics for plotting)
 classifierSelection = classifierSelection[order(match(classifierSelection,prefClassifierOrder))]
